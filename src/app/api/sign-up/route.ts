@@ -1,5 +1,5 @@
 import dbConnect from "@/lib/dbConnect";
-import { sendVerificationEmail } from "@/helpers/sendVerificationEmail";
+import { sendVerificationEmail } from "@/helper/sendVerificationEmail";
 import User from "@/models/User";
 import bcryptjs from "bcryptjs";
 import { NextRequest,NextResponse} from "next/server";
@@ -70,19 +70,18 @@ export async function POST(
     }
     // send verification code through email
     const verificationMailResponse =  await sendVerificationEmail(
-      username,
       email,
+      username,
       verifyCode,
     );
-    console.log("Recieved verification mail response : " + verificationMailResponse.message);
+    
     if (verificationMailResponse.success) {
       return NextResponse.json( {
         success: true,
-        message: "Please verify your account.",
+        message: "Verification code sent. Please verify your account.",
         status: 201,
       });
     } else {
-      console.log("Failed to send verification email");
       return NextResponse.json({
         success: false,
         message: verificationMailResponse.message,
