@@ -1,20 +1,10 @@
 import dbConnect from "@/lib/dbConnect";
-import { NextRequest, NextResponse } from "next/server";
 import User from "@/models/User";
 import bcryptjs from "bcryptjs";
 import CredentialsProvider from "next-auth/providers/credentials";
-import Credentials from "next-auth/providers/credentials";
-import NextAuth from "next-auth";
+import {NextAuthConfig}  from 'next-auth';
 
-interface NextAuthOptions {
-  providers: any[];
-  callbacks: {};
-  pages: {};
-  session: {};
-  secret?: string;
-}
-
-export const authOptions: NextAuthOptions = {
+export const authOptions: NextAuthConfig = {
   providers: [
     CredentialsProvider({
       id: "credentials",
@@ -23,7 +13,7 @@ export const authOptions: NextAuthOptions = {
         username: { label: "Email", type: "text" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(credentials: any): Promise<any> {
+      async authorize(credentials:any): Promise<any> {
         await dbConnect();
         try {
           const user = await User.findOne({
@@ -50,8 +40,11 @@ export const authOptions: NextAuthOptions = {
           } else {
             throw new Error("Incorrect password");
           }
-        } catch (error: any) {
-          throw new Error(error);
+        } catch (error) {
+          if (error instanceof Error) {
+            throw new Error(error.message);
+          }
+          throw new Error("An unknown error occurred");
         }
       },
     }),
@@ -59,21 +52,20 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     // Callback to modify the JWT token
 
-    async jwt({ token, user }: any) {
+    async jwt({ token, user }) {
       if (user) {
         // Add fields from the user to the token
         token._id = user._id?.toString(); // Convert ObjectId to string
         token.username = user.username;
         token.email = user.email;
         token.isVerified = user.isVerified;
-        token.verificationCode = user.verificationCode;
         token.profilePicture = user.profilePicture;
         token.bio = user.bio;
       }
       return token;
     },
     // Modify the session object to include token information
-    async session({ session, token }: any) {
+    async session({ session, token }) {
       if (token) {
         session.user._id = token._id;
         session.user.username = token.username;
@@ -86,7 +78,7 @@ export const authOptions: NextAuthOptions = {
     },
   },
   pages: {
-    signIn: "sign-in",
+    signIn: "/sign-in",
   },
   session: {
     strategy: "jwt",
