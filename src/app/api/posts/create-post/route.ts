@@ -1,43 +1,67 @@
 import dbConnect from "@/lib/dbConnect";
 import Idea from "@/models/Idea";
-import { NextRequest } from "next/server";
-import { NextResponse } from "next/server";
+import User from "@/models/User";
+import { NextRequest, NextResponse } from "next/server";
+import getServerSession from "next-auth";
+import { authOptions } from "../../auth/[...nextauth]/options"; // Adjust this path
+import { Session } from "next-auth";
 
 export async function POST(request: NextRequest) {
-  // connect to db
   await dbConnect();
 
-  try {
-    const { id, title, description, goalAmount } = await request.json();
+  // Get the authenticated user's session
+  const session = (await getServerSession(authOptions)) as unknown as Session;
 
-    // Validate input fields
+  if (!session || !session.user) {
+    return NextResponse.json({
+      success: false,
+      message: "User not authenticated",
+      status: 401,
+    });
+  }
+
+  try {
+    // Parse the request body
+    const { title, description, goalAmount } = await request.json();
+
+    // Validate the required fields
     if (!title || !description || !goalAmount) {
       return NextResponse.json({
         success: false,
-        message: "Missing required fields",
+        message: "All fields (title, description, goalAmount) are required",
         status: 400,
       });
     }
 
-    // Create the new post with user ID
+    // Create a new post
     const newPost = new Idea({
-      title,
-      description,
-      goalAmount,
-      owner: id, // Assuming session holds user's ID
+      title: title,
+      description: description,
+      goalAmount: goalAmount,
+      owner: session.user._id, // Associate the post with the authenticated user
     });
 
-    await newPost.save();
+    // Save the post to the database
+    const savedPost = await newPost.save();
+
+    // Add the post ID to the user's posts array
+    await User.updateOne(
+      { _id: session.user._id },
+      { $push: { posts: savedPost._id } },
+    );
+
+    // Return a successful response
     return NextResponse.json({
       success: true,
       message: "Post created successfully",
-      status: 200,
+      status: 201,
+      post: savedPost, // Optionally return the created post
     });
   } catch (error) {
-    console.log("Error occurred in adding the post: ", error);
+    console.error("Error occurred while creating post: ", error);
     return NextResponse.json({
       success: false,
-      message: "Failed to add the post",
+      message: "Failed to create post",
       status: 500,
     });
   }
